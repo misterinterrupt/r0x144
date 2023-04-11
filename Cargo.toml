@@ -1,0 +1,7 @@
+[workspace]
+members = ["undohistory", "mars"]
+
+[workspace.package]
+authors = ["m. interrupt"]
+edition = "2021"
+description = "A bunch of libraries"
