@@ -5,7 +5,7 @@ fn main() {
     println!("running basedrop test");
     let (tx_send, rx_send) = std::sync::mpsc::channel::<Shared<i32>>();
     let max = 100;
-    let collector_handle = std::thread::spawn(move || {
+    let writer_handle = std::thread::spawn(move || {
         let mut current = 1;
         let mut collector = Collector::new();
         loop {
@@ -25,7 +25,7 @@ fn main() {
             collector.collect();
         }
     });
-    let user_handle = std::thread::spawn(move || loop {
+    let reader_handle = std::thread::spawn(move || loop {
         let res: Result<Shared<i32>, std::sync::mpsc::TryRecvError> = rx_send.try_recv().to_owned();
         if let Ok(ptr) = res {
             println!("{} recieved in user thread", *ptr);
@@ -35,8 +35,8 @@ fn main() {
             }
         }
     });
-    collector_handle.join().unwrap();
-    user_handle.join().unwrap();
+    writer_handle.join().unwrap();
+    reader_handle.join().unwrap();
     std::process::exit(1);
 }
 
