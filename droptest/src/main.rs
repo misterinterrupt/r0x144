@@ -19,8 +19,8 @@ fn main() {
                 Err(_) => println!("failed to send ptr from collector thread"),
             }
             if current > max {
-                println!("all shared ptrs returned to collector thread");
-                std::process::exit(1);
+                println!("all shared ptrs sent to collector thread");
+                break;
             }
             collector.collect();
         }
@@ -28,12 +28,16 @@ fn main() {
     let user_handle = std::thread::spawn(move || loop {
         let res: Result<Shared<i32>, std::sync::mpsc::TryRecvError> = rx_send.try_recv().to_owned();
         if let Ok(ptr) = res {
-            let data = *ptr;
-            println!("{} recieved in user thread", data);
+            println!("{} recieved in user thread", *ptr);
+            if *ptr >= max {
+                println!("all shared ptrs recieved in user thread");
+                std::process::exit(1);
+            }
         }
     });
     collector_handle.join().unwrap();
     user_handle.join().unwrap();
+    std::process::exit(1);
 }
 
 #[cfg(test)]
