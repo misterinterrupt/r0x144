@@ -1,5 +1,5 @@
 [workspace]
-members = ["undohistory", "mars", "droptest"]
+members = ["undohistory", "mars", "droptest", "imtest"]
 
 [workspace.package]
 authors = ["m. interrupt"]
