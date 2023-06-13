@@ -40,6 +40,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "imtest"
+version = "0.1.0"
+dependencies = [
+ "im",
+]
+
+[[package]]
 name = "mars"
 version = "0.1.0"
 
