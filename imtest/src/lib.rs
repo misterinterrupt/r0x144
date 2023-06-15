@@ -1,3 +1,8 @@
+// allow dead_code when checking the lib without tests
+// cargo-analyzer runs `cargo check` for lib the lib with and without tests.
+// dead_code warnings in the ide won't show if the code is used in tests.
+#![cfg_attr(not(test), allow(dead_code))]
+
 mod imtest {
     use im::{HashMap, Vector};
     use serde::{Deserialize, Serialize};

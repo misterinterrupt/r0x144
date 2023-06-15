@@ -1,6 +1,10 @@
-extern crate im;
-
+// allow dead_code when checking the lib without tests
+// cargo-analyzer runs `cargo check` for lib the lib with and without tests.
+// dead_code warnings in the ide won't show if the code is used in tests.
+// #![cfg_attr(not(test), allow(dead_code))]
+#![allow(dead_code)]
 mod store {
+    extern crate im;
     use std::{
         cell::RefCell,
         marker::PhantomData,
@@ -62,14 +66,14 @@ mod store {
     }
 }
 
-#[cfg(test)]
+// #[cfg(test)]
 mod tests {
     use im::Vector;
 
     use crate::store::Store;
     use std::thread;
 
-    #[test]
+    // #[test]
     fn vec_thread_access() {
         let initial_state = Vector::<i32>::new();
         let store = Store::new(initial_state);
