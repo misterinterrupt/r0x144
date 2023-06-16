@@ -24,9 +24,13 @@ mod imtest {
                 data: HashMap::new(),
             }
         }
-        pub fn insert(&self, key: String, value: T) {
-            self.history.clone().push_back(self.data.clone());
+        pub fn insert(&mut self, key: String, value: T) {
+            self.history.push_back(self.data.clone());
             self.data.clone().insert(key, value);
+        }
+        pub fn remove(&mut self, key: &str) {
+            self.history.push_back(self.data.clone());
+            self.data.remove(key);
         }
         pub fn len(&self) -> usize {
             self.data.len()
@@ -37,12 +41,37 @@ mod imtest {
         pub fn get(&self, key: &str) -> Option<T> {
             self.data.get(key).cloned()
         }
+        // return an immutable copy of the data
+        pub fn reader(&self) -> &HashMap<String, T> {
+            &self.data
+        }
+    }
+    impl<T> Clone for State<T>
+    where
+        T: Clone + Send + Sync + PartialEq + Eq,
+    {
+        fn clone(&self) -> Self {
+            Self {
+                history: self.history.clone(),
+                data: self.data.clone(),
+            }
+        }
+    }
+    impl<T> Default for State<T>
+    where
+        T: Clone + Send + Sync + PartialEq + Eq,
+    {
+        fn default() -> Self {
+            Self::new()
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
+
+    use im::HashMap;
 
     use super::imtest::State;
 
@@ -56,8 +85,8 @@ mod tests {
     }
 
     #[test]
-    fn insert_makes_history_after_one() {
-        let state = State::new();
+    fn insert_makes_history() {
+        let mut state = State::new();
         state.insert("a".to_string(), 1);
         assert_eq!(state.hist_len(), 1);
         state.insert("a".to_string(), 2);
@@ -65,41 +94,68 @@ mod tests {
         state.insert("a".to_string(), 3);
         assert_eq!(state.hist_len(), 3);
     }
+    #[test]
+    fn remove_makes_history() {
+        let mut state = State::new();
+        state.insert("a".to_string(), 1);
+        state.insert("b".to_string(), 2);
+        state.insert("c".to_string(), 3);
+        state.remove("a");
+        assert_eq!(state.hist_len(), 4);
+        state.remove("b");
+        assert_eq!(state.hist_len(), 5);
+        state.remove("c");
+        assert_eq!(state.hist_len(), 6);
+    }
 
     #[test]
-    fn send_sync_two_thread_edit() {
-        let state = Arc::new(State::new());
-        state.insert("t1a".to_string(), 1);
-        state.insert("t1b".to_string(), 2);
-        state.insert("t2a".to_string(), 3);
-        state.insert("t2b".to_string(), 4);
-        let s1 = state.clone();
-        let s2 = s1.clone();
-        let s3 = s1.clone();
-        let s4 = s1.clone();
+    fn write_thread_read_thread() {
+        // create a new state with a static lifetime
+        let mut state = State::<i32>::new();
+        state.insert("t1".to_string(), 1);
+        state.insert("t2".to_string(), 2);
+        state.insert("t3".to_string(), 3);
+        state.insert("t4".to_string(), 4);
+        std::thread::scope(|scope| {
+            // create a mutable reference to the state to send to the other thread
+            let ref_state = &mut state;
+            let (tx1, rx1) = std::sync::mpsc::channel::<Arc<&HashMap<String, i32>>>();
 
-        let (tx1, rx1) = std::sync::mpsc::channel::<Arc::<State<i32>>>();
-
-        let t1 = std::thread::spawn(move || {
-            s1.insert("t1a".to_string(), 5);
-            s3.insert("t1b".to_string(), 6);
-            tx1.send(s1).unwrap();
+            let _t1 = scope
+                .spawn(move || {
+                    // mutate the state
+                    ref_state.insert("t1a".to_string(), 5);
+                    ref_state.insert("t2a".to_string(), 6);
+                    ref_state.insert("t3a".to_string(), 7);
+                    ref_state.insert("t4a".to_string(), 8);
+                    // send a reader to the other thread
+                    tx1.send(Arc::new(ref_state.reader())).unwrap();
+                })
+                .join()
+                .unwrap();
+            let _t2 = scope
+                .spawn(move || loop {
+                    match rx1.recv() {
+                        Ok(data) => {
+                            if let Some(v) = data.get("t1a") {
+                                assert_eq!(*v, 5);
+                            }
+                            if let Some(v) = data.get("t2a") {
+                                assert_eq!(*v, 6);
+                            }
+                            if let Some(v) = data.get("t3a") {
+                                assert_eq!(*v, 7);
+                            }
+                            if let Some(v) = data.get("t4a") {
+                                assert_eq!(*v, 8);
+                            }
+                            break;
+                        }
+                        Err(_) => break,
+                    }
+                })
+                .join()
+                .unwrap();
         });
-        let t2 = std::thread::spawn(move || {
-            s2.insert("t2a".to_string(), 7);
-            s4.insert("t2b".to_string(), 8);
-            match rx1.try_recv() {
-                Ok(state) => {
-                    assert_eq!(state.get("t1a").unwrap(), 5);
-                    assert_eq!(state.get("t1b").unwrap(), 6);
-                }
-                Err(_) => {}
-            }
-        });
-        (t1.join().unwrap(), t2.join().unwrap());
-        assert_eq!(state.get("t1a").unwrap(), 5);
-        assert_eq!(state.get("t1b").unwrap(), 6);
-        assert_eq!(state.get("t2a").unwrap(), 7);
-        assert_eq!(state.get("t2b").unwrap(), 8);
     }
 }
