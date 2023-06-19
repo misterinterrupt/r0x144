@@ -25,7 +25,13 @@ pub(crate) mod immutable {
             }
             return None;
         }
-        pub fn push(&mut self, value: T) {
+        // save a new state to the history, saves the current state first
+        pub fn save(&mut self, value: T) {
+            // if the current index is in the past, push the current value to the front first
+            if self.current > 0 {
+                let current = self.get(self.current);
+                self.history.push_front(current.unwrap());
+            }
             self.history.push_front(value);
             self.current = 0;
         }
@@ -47,16 +53,22 @@ pub(crate) mod immutable {
             }
             self.current()
         }
+        pub fn load(&mut self, index: usize) -> Option<T> {
+            if index < self.history.len() {
+                self.current = index;
+            }
+            self.current()
+        }
     }
 }
 #[cfg(test)]
 mod tests {
     use super::immutable::UndoHistory;
     #[test]
-    fn test_undo() {
+    fn undo_redo() {
         let mut history = UndoHistory::new();
         assert_eq!(history.current(), None);
-        history.push("z".to_string());
+        history.save("z".to_string());
         assert_eq!(history.current().unwrap(), "z".to_string());
         history.undo();
         assert_eq!(history.current(), None);
@@ -68,12 +80,27 @@ mod tests {
         assert_eq!(history.current().unwrap(), "z".to_string());
         history.redo();
         assert_eq!(history.current().unwrap(), "z".to_string());
-        history.push("y".to_string());
+        history.save("y".to_string());
         assert_eq!(history.current().unwrap(), "y".to_string());
         history.undo();
         history.undo();
         assert_eq!(history.current(), None);
         history.redo();
         assert_eq!(history.current().unwrap(), "z".to_string());
+    }
+    #[test]
+    fn select() {
+        let mut history = UndoHistory::new();
+        assert_eq!(history.current(), None);
+        history.save("z".to_string());
+        assert_eq!(history.current().unwrap(), "z".to_string());
+        history.save("y".to_string());
+        assert_eq!(history.current().unwrap(), "y".to_string());
+        history.load(0);
+        assert_eq!(history.current().unwrap(), "z".to_string());
+        history.load(1);
+        assert_eq!(history.current().unwrap(), "y".to_string());
+        history.load(2);
+        assert_eq!(history.current(), None);
     }
 }
