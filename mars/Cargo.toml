@@ -8,3 +8,4 @@ edition.workspace = true
 path = "src/lib.rs"
 
 [dependencies]
+rpds = { version = "0.13.0", features = ["serde"] }
