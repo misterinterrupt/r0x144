@@ -13,9 +13,11 @@ pub(crate) mod immutable {
     where
         T: Clone,
     {
-        pub fn new() -> Self {
+        pub fn new(initial_state: T) -> Self {
+            let mut state = Vector::<T>::new();
+            state.push_front(initial_state);
             UndoHistory {
-                history: Vector::new(),
+                history: state,
                 current: 0,
             }
         }
@@ -66,16 +68,18 @@ mod tests {
     use super::immutable::UndoHistory;
     #[test]
     fn undo_redo() {
-        let mut history = UndoHistory::new();
-        assert_eq!(history.current(), None);
+        let initial_state = "initial".to_string();
+        let initial_test_state = Some(initial_state.clone());
+        let mut history = UndoHistory::new(initial_state);
+        assert_eq!(history.current(), initial_test_state);
         history.save("z".to_string());
         assert_eq!(history.current().unwrap(), "z".to_string());
         history.undo();
-        assert_eq!(history.current(), None);
+        assert_eq!(history.current(), initial_test_state);
         history.redo();
         assert_eq!(history.current().unwrap(), "z".to_string());
         history.undo();
-        assert_eq!(history.current(), None);
+        assert_eq!(history.current(), initial_test_state);
         history.redo();
         assert_eq!(history.current().unwrap(), "z".to_string());
         history.redo();
@@ -84,14 +88,16 @@ mod tests {
         assert_eq!(history.current().unwrap(), "y".to_string());
         history.undo();
         history.undo();
-        assert_eq!(history.current(), None);
+        assert_eq!(history.current(), initial_test_state);
         history.redo();
         assert_eq!(history.current().unwrap(), "z".to_string());
     }
     #[test]
     fn select() {
-        let mut history = UndoHistory::new();
-        assert_eq!(history.current(), None);
+        let initial_state = "initial".to_string();
+        let initial_test_state = Some(initial_state.clone());
+        let mut history = UndoHistory::new(initial_state);
+        assert_eq!(history.current(), initial_test_state);
         history.save("z".to_string());
         assert_eq!(history.current().unwrap(), "z".to_string());
         history.save("y".to_string());
@@ -101,6 +107,6 @@ mod tests {
         history.load(1);
         assert_eq!(history.current().unwrap(), "y".to_string());
         history.load(2);
-        assert_eq!(history.current(), None);
+        assert_eq!(history.current(), initial_test_state);
     }
 }
